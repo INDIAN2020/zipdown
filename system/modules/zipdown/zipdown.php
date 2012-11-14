@@ -1,7 +1,7 @@
 <?php
 
 if (!defined('TL_ROOT'))
-    die('You can not access this file directly!');
+	die('You can not access this file directly!');
 
 /**
  * Contao Open Source CMS
@@ -31,94 +31,124 @@ if (!defined('TL_ROOT'))
  */
 
 /**
- * Class zipdown 
+ * Class Zipdown 
  *
  * @copyright  MEN AT WORK 2011 
- * @package    zipdown
+ * @package    Zipdown
  */
-class zipdown extends Controller
+class Zipdown extends Controller
 {
-    protected $zip;
-    const TEMPORARY_FOLDER  = 'system/tmp';
 
-    function zipDownload($fileNames)
-    {  
-        $archiveFileName = 'download_' . rand(10000, 99999) . time() . '.zip';
-        $this->zip = new ZipWriter(self::TEMPORARY_FOLDER . $archiveFileName);
+	// Singelten pattern
+	protected static $instance = null;
+	// Vars
+	protected $objZip;
+	// Const
+	const TEMPORARY_FOLDER = 'system/tmp';
 
-        if (is_array($fileNames))
-        {
-            //add each file of $fileNames array to archive
-            foreach ($fileNames as $files)
-            {
-                try
-                {
-                    $this->zip->addFile($files, basename($files));                    
-                }
-                catch (Exception $exc)
-                {
-                    // Do nothing
-                }
-            }
-        }
-        else
-        {
-            //add file of $fileNames string to archive
-            try
-            {
-                $this->zip->addFile($fileNames, basename($files));                
-            }
-            catch (Exception $exc)
-            {
-                // Do nothing
-            }
-        }
+	/**
+	 * Constructor
+	 */
+	protected function __construct()
+	{
+		parent::__construct();
+	}
 
-        $this->zip->close();
+	/**
+	 * Get instance of Zipdown
+	 * 
+	 * @return Zipdown 
+	 */
+	public static function getInstance()
+	{
+		if (self::$instance == null)
+		{
+			self::$instance = new Zipdown();
+		}
 
-        $content = file_get_contents(self::TEMPORARY_FOLDER . $archiveFileName);
-        unlink(self::TEMPORARY_FOLDER . $archiveFileName);
-        $temp = tmpfile();
-        fwrite($temp, $content);
-        rewind($temp);
+		return self::$instance;
+	}
 
-        ob_get_clean();
-        header('Content-Type: application/zip');
-        header('Content-Transfer-Encoding: binary');
-        header('Content-Disposition: attachment; filename="' . $archiveFileName . '"');
-        header('Content-Length: ' . strlen($content));
-        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-        header('Pragma: public');
-        header('Expires: 0');
-        fpassthru($temp);
+	public function zipDownload($fileNames)
+	{
+		$archiveFileName = 'download_' . rand(10000, 99999) . time() . '.zip';
+		$this->zip		 = new ZipWriter(self::TEMPORARY_FOLDER . $archiveFileName);
 
-        fclose($temp);
+		if (is_array($fileNames))
+		{
+			//add each file of $fileNames array to archive
+			foreach ($fileNames as $files)
+			{
+				try
+				{
+					$this->zip->addFile($files, basename($files));
+				}
+				catch (Exception $exc)
+				{
+					// Do nothing
+				}
+			}
+		}
+		else
+		{
+			//add file of $fileNames string to archive
+			try
+			{
+				$this->zip->addFile($fileNames, basename($files));
+			}
+			catch (Exception $exc)
+			{
+				// Do nothing
+			}
+		}
 
-        // HOOK: post download callback
-        if (isset($GLOBALS['TL_HOOKS']['postDownload']) && is_array($GLOBALS['TL_HOOKS']['postDownload']))
-        {
-            foreach ($GLOBALS['TL_HOOKS']['postDownload'] as $callback)
-            {
-                $this->import($callback[0]);
-                $this->$callback[0]->$callback[1]($strFile);
-            }
-        }
-        exit;
-    }
+		$this->zip->close();
 
-    function zipdownForm($linkId, $dataArray, $linkString = 'Download')
-    {
-        if ($this->Input->get('zipdown', true) == $linkId)
-        {
-            $this->zipDownload($dataArray);
-        }
-        $this->Template = new FrontendTemplate('show_zipdown');
-        $this->Template->link = $linkString;
-        $this->Template->linkId = $linkId;
-        $this->Template->href = $this->Environment->request . (($GLOBALS['TL_CONFIG']['disableAlias'] || strpos($this->Environment->request, '?') !== false) ? '&amp;' : '?') . 'zipdown=' . $linkId;
+		$content = file_get_contents(self::TEMPORARY_FOLDER . $archiveFileName);
+		unlink(self::TEMPORARY_FOLDER . $archiveFileName);
+		$temp	 = tmpfile();
+		fwrite($temp, $content);
+		rewind($temp);
 
-        return $this->Template->parse();
-    }
+		ob_get_clean();
+		header('Content-Type: application/zip');
+		header('Content-Transfer-Encoding: binary');
+		header('Content-Disposition: attachment; filename="' . $archiveFileName . '"');
+		header('Content-Length: ' . strlen($content));
+		header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+		header('Pragma: public');
+		header('Expires: 0');
+		fpassthru($temp);
+
+		fclose($temp);
+
+		// HOOK: post download callback
+		if (isset($GLOBALS['TL_HOOKS']['postDownload']) && is_array($GLOBALS['TL_HOOKS']['postDownload']))
+		{
+			foreach ($GLOBALS['TL_HOOKS']['postDownload'] as $callback)
+			{
+				$this->import($callback[0]);
+				$this->$callback[0]->$callback[1](self::TEMPORARY_FOLDER . $archiveFileName);
+			}
+		}
+
+		exit;
+	}
+
+	public function zipdownForm($linkId, $dataArray, $linkString = 'Download')
+	{
+		if ($this->Input->get('zipdown', true) == $linkId)
+		{
+			$this->zipDownload($dataArray);
+		}
+
+		$this->Template			 = new FrontendTemplate('show_zipdown');
+		$this->Template->link	 = $linkString;
+		$this->Template->linkId	 = $linkId;
+		$this->Template->href	 = $this->Environment->request . (($GLOBALS['TL_CONFIG']['disableAlias'] || strpos($this->Environment->request, '?') !== false) ? '&amp;' : '?') . 'zipdown=' . $linkId;
+
+		return $this->Template->parse();
+	}
 
 }
 
